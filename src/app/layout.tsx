@@ -16,10 +16,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
 	return (
 		<html
-			className={`${inter.variable} ${playfairDisplay.variable} font-sans bg-parchment text-charcoal`}
+			className={`${inter.variable} ${playfairDisplay.variable}`}
 			lang="en"
 		>
-			<body>
+			<body className="font-sans bg-parchment text-charcoal">
 				<TRPCReactProvider>{children}</TRPCReactProvider>
 			</body>
 		</html>

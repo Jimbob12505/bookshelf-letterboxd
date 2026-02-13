@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { Book } from "~/lib/books";
 import { motion } from "framer-motion";
 import Image from "next/image";
@@ -9,38 +10,75 @@ type BookCardProps = {
   layoutId: string;
 };
 
+function BookCoverPlaceholder() {
+  return (
+    <div className="flex h-full w-full items-center justify-center bg-black/5 p-4">
+      <div className="text-center text-charcoal">
+        <svg
+          className="mx-auto h-12 w-12 opacity-50"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="1"
+            d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"
+          />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="1"
+            d="M9 9l6 6m0-6l-6 6"
+          />
+        </svg>
+        <p className="mt-2 text-sm font-serif text-charcoal/70">No Cover</p>
+      </div>
+    </div>
+  );
+}
+
 export function BookCard({ book, layoutId }: BookCardProps) {
+  const [imageError, setImageError] = useState(false);
+
   return (
     <motion.div
       layoutId={layoutId}
-      className="group relative overflow-hidden rounded-lg bg-white shadow-md transition-shadow duration-300 hover:shadow-xl"
+      whileHover={{ y: -8 }}
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      className="group relative flex aspect-[2/3] w-full flex-col overflow-hidden rounded-2xl shadow-tactile transition-shadow duration-500 hover:shadow-2xl"
     >
-      <div className="relative h-64 w-full">
-        {book.thumbnail && (
+      <div className="relative h-full w-full bg-parchment/50">
+        {book.thumbnail && !imageError ? (
           <Image
             src={book.thumbnail}
             alt={`${book.title} cover`}
             layout="fill"
             objectFit="cover"
-            className="transition-transform duration-300 group-hover:scale-105"
+            className="transition-transform duration-700 group-hover:scale-110"
+            onError={() => setImageError(true)}
           />
+        ) : (
+          <BookCoverPlaceholder />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
       </div>
 
-      <div className="absolute bottom-0 left-0 p-4">
-        <h3 className="font-serif text-lg font-bold text-white">
+      {/* Glass Metadata Overlay */}
+      <div className="absolute inset-x-3 bottom-3 overflow-hidden rounded-xl border border-white/20 bg-white/40 p-4 backdrop-blur-md transition-all duration-300 group-hover:bg-white/60">
+        <h3 className="line-clamp-2 font-serif text-lg font-bold leading-tight text-charcoal">
           {book.title}
         </h3>
-        <p className="text-sm text-gray-300">
+        <p className="mt-1 line-clamp-1 font-sans text-xs font-medium tracking-wide uppercase text-charcoal/60">
           {book.authors?.join(", ") ?? "Unknown Author"}
         </p>
       </div>
 
-      <div className="absolute right-4 top-4 flex translate-y-[-150%] flex-col items-center gap-2 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+      <div className="absolute right-4 top-4 flex translate-y-2 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
         <motion.button
+          whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
-          className="rounded-full bg-sage p-3 text-white shadow-lg"
+          className="rounded-full bg-sage p-3 text-white shadow-lg backdrop-blur-md"
         >
           <PlusIcon />
         </motion.button>
@@ -67,3 +105,4 @@ function PlusIcon() {
     </svg>
   );
 }
+

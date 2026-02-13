@@ -7,6 +7,14 @@ import "./src/env.js";
 /** @type {import("next").NextConfig} */
 const config = {
   output: 'standalone',
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "books.google.com",
+      },
+    ],
+  },
 };
 
 export default config;

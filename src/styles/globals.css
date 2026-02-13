@@ -1,7 +1,24 @@
 @import "tailwindcss";
 
 @theme {
-	--font-sans:
-		var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif,
-		"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --color-parchment: #F5F2ED;
+  --color-sage: #8A9A5B;
+  --color-charcoal: #2C2C2C;
+  --color-ink: #1A1A1A;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-playfair-display), ui-serif, Georgia, serif;
+
+  --shadow-tactile: 0 10px 30px -5px rgba(0, 0, 0, 0.1), 0 8px 15px -8px rgba(0, 0, 0, 0.05);
+}
+
+@layer components {
+  .glass-card {
+    @apply rounded-2xl border border-white/30 bg-white/40 backdrop-blur-md shadow-tactile;
+    background-image: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.2) 0%, transparent 100%);
+  }
+}
+
+body {
+  @apply bg-parchment text-charcoal antialiased;
 }
