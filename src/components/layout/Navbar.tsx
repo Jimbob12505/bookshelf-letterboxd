@@ -21,7 +21,7 @@ export default function Navbar({ session }: { session: Session | null }) {
   return (
     <nav className="fixed top-0 z-50 w-full px-4 py-6">
       <div className="mx-auto max-w-7xl">
-        <div className="overflow-hidden rounded-full border border-white/20 bg-white/40 shadow-tactile backdrop-blur-md transition-all duration-300">
+        <div className="rounded-full border border-white/20 bg-white/40 shadow-tactile backdrop-blur-md transition-all duration-300">
           <div className="flex items-center justify-between px-6 py-3">
             {/* Logo */}
             <Link href="/" className="group flex items-center gap-2">
@@ -81,10 +81,17 @@ export default function Navbar({ session }: { session: Session | null }) {
                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        className="absolute right-0 mt-2 w-48 overflow-hidden rounded-2xl border border-white/20 bg-white/80 p-2 shadow-tactile backdrop-blur-lg"
+                        className="absolute right-0 mt-2 w-48 overflow-hidden rounded-2xl border border-white/20 bg-white/80 p-2 shadow-tactile backdrop-blur-lg z-50"
                       >
+                        <Link
+                          href="/profile"
+                          className="flex w-full items-center px-4 py-2 text-sm font-medium text-charcoal transition-colors hover:bg-black/5 rounded-xl mb-1"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          Profile
+                        </Link>
                         <button
-                          onClick={() => signOut()}
+                          onClick={() => signOut({ callbackUrl: "/" })}
                           className="flex w-full items-center px-4 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-50 rounded-xl"
                         >
                           Sign Out
