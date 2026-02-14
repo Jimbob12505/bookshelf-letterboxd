@@ -1,5 +1,6 @@
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import type { DefaultSession, NextAuthConfig } from "next-auth";
+import Google from "next-auth/providers/google";
 
 import { db } from "~/server/db";
 
@@ -31,6 +32,7 @@ declare module "next-auth" {
  */
 export const authConfig = {
 	providers: [
+		Google,
 		/**
 		 * ...add more providers here.
 		 *
@@ -42,6 +44,9 @@ export const authConfig = {
 		 */
 	],
 	adapter: PrismaAdapter(db),
+	pages: {
+		signIn: "/auth/signin",
+	},
 	callbacks: {
 		session: ({ session, user }) => ({
 			...session,
