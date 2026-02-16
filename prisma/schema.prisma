@@ -37,6 +37,7 @@ model User {
 
   // Shelves
   shelves    Shelf[]
+  journalEntries JournalEntry[]
 }
 
 model Account {
@@ -93,6 +94,7 @@ model Book {
   reviews  Review[]
   topShelf TopShelf[]
   shelves  Shelf[]
+  journalEntries JournalEntry[]
 }
 
 model Shelf {
@@ -105,6 +107,21 @@ model Shelf {
   userId    String
 
   books     Book[]
+}
+
+model JournalEntry {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  page      Int?
+  type      String   @default("note") // "note", "review", "quote"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+
+  book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  bookId    String
 }
 
 model Review {

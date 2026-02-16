@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Book } from "~/lib/books";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import Link from "next/link";
 
 type BookCardProps = {
   book: Book;
@@ -43,47 +44,53 @@ export function BookCard({ book, layoutId }: BookCardProps) {
   const [imageError, setImageError] = useState(false);
 
   return (
-    <motion.div
-      layoutId={layoutId}
-      whileHover={{ y: -8 }}
-      transition={{ type: "spring", stiffness: 300, damping: 20 }}
-      className="group relative flex aspect-[2/3] w-full flex-col overflow-hidden rounded-2xl shadow-tactile transition-shadow duration-500 hover:shadow-2xl"
-    >
-      <div className="relative h-full w-full bg-parchment/50">
-        {book.thumbnail && !imageError ? (
-          <Image
-            src={book.thumbnail}
-            alt={`${book.title} cover`}
-            layout="fill"
-            objectFit="cover"
-            className="transition-transform duration-700 group-hover:scale-110"
-            onError={() => setImageError(true)}
-          />
-        ) : (
-          <BookCoverPlaceholder />
-        )}
-      </div>
+    <Link href={`/book/${book.id}`}>
+      <motion.div
+        layoutId={layoutId}
+        whileHover={{ y: -8 }}
+        transition={{ type: "spring", stiffness: 300, damping: 20 }}
+        className="group relative flex aspect-[2/3] w-full flex-col overflow-hidden rounded-2xl shadow-tactile transition-shadow duration-500 hover:shadow-2xl"
+      >
+        <div className="relative h-full w-full bg-parchment/50">
+          {book.thumbnail && !imageError ? (
+            <Image
+              src={book.thumbnail}
+              alt={`${book.title} cover`}
+              layout="fill"
+              objectFit="cover"
+              className="transition-transform duration-700 group-hover:scale-110"
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <BookCoverPlaceholder />
+          )}
+        </div>
 
-      {/* Glass Metadata Overlay */}
-      <div className="absolute inset-x-3 bottom-3 overflow-hidden rounded-xl border border-white/20 bg-white/40 p-4 backdrop-blur-md transition-all duration-300 group-hover:bg-white/60">
-        <h3 className="line-clamp-2 font-serif text-lg font-bold leading-tight text-charcoal">
-          {book.title}
-        </h3>
-        <p className="mt-1 line-clamp-1 font-sans text-xs font-medium tracking-wide uppercase text-charcoal/60">
-          {book.authors?.join(", ") ?? "Unknown Author"}
-        </p>
-      </div>
+        {/* Glass Metadata Overlay */}
+        <div className="absolute inset-x-3 bottom-3 overflow-hidden rounded-xl border border-white/20 bg-white/40 p-4 backdrop-blur-md transition-all duration-300 group-hover:bg-white/60">
+          <h3 className="line-clamp-2 font-serif text-lg font-bold leading-tight text-charcoal">
+            {book.title}
+          </h3>
+          <p className="mt-1 line-clamp-1 font-sans text-xs font-medium tracking-wide uppercase text-charcoal/60">
+            {book.authors?.join(", ") ?? "Unknown Author"}
+          </p>
+        </div>
 
-      <div className="absolute right-4 top-4 flex translate-y-2 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
-        <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          className="rounded-full bg-sage p-3 text-white shadow-lg backdrop-blur-md"
-        >
-          <PlusIcon />
-        </motion.button>
-      </div>
-    </motion.div>
+        <div className="absolute right-4 top-4 flex translate-y-2 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            className="rounded-full bg-sage p-3 text-white shadow-lg backdrop-blur-md"
+            onClick={(e) => {
+              e.preventDefault(); // Prevent navigation when clicking the add button
+              // TODO: Implement quick add
+            }}
+          >
+            <PlusIcon />
+          </motion.button>
+        </div>
+      </motion.div>
+    </Link>
   );
 }
 
@@ -105,4 +112,3 @@ function PlusIcon() {
     </svg>
   );
 }
-

@@ -50,6 +50,8 @@ const bookSchema = z.object({
   }),
 });
 
+const singleBookSchema = bookSchema;
+
 const searchSchema = z.object({
   items: z.array(bookSchema),
 });
@@ -63,20 +65,7 @@ function getIsbn(
   return industryIdentifiers?.find((i) => i.type === type)?.identifier;
 }
 
-export async function searchBooks(query: string): Promise<Book[]> {
-  if (!process.env.GOOGLE_BOOKS_API_KEY) {
-    throw new Error("GOOGLE_BOOKS_API_KEY is not set");
-  }
-
-  const url = new URL("https://www.googleapis.com/books/v1/volumes");
-  url.searchParams.set("q", query);
-  url.searchParams.set("key", process.env.GOOGLE_BOOKS_API_KEY);
-
-  const response = await fetch(url);
-  const data = await response.json();
-  const parsed = searchSchema.parse(data);
-
-  return parsed.items.map((item) => {
+function parseBookItem(item: z.infer<typeof bookSchema>): Book {
     const volumeInfo = item.volumeInfo;
     const imageLinks = volumeInfo.imageLinks;
 
@@ -93,7 +82,7 @@ export async function searchBooks(query: string): Promise<Book[]> {
         }, {} as typeof imageLinks)
       : {};
 
-    const book: Book = {
+    return {
       id: item.id,
       title: volumeInfo.title,
       subtitle: volumeInfo.subtitle ?? null,
@@ -110,6 +99,40 @@ export async function searchBooks(query: string): Promise<Book[]> {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    return book;
-  });
+}
+
+export async function searchBooks(query: string): Promise<Book[]> {
+  if (!process.env.GOOGLE_BOOKS_API_KEY) {
+    throw new Error("GOOGLE_BOOKS_API_KEY is not set");
+  }
+
+  const url = new URL("https://www.googleapis.com/books/v1/volumes");
+  url.searchParams.set("q", query);
+  url.searchParams.set("key", process.env.GOOGLE_BOOKS_API_KEY);
+
+  const response = await fetch(url);
+  const data = await response.json();
+  const parsed = searchSchema.parse(data);
+
+  return parsed.items.map(parseBookItem);
+}
+
+export async function getBook(id: string): Promise<Book> {
+  if (!process.env.GOOGLE_BOOKS_API_KEY) {
+    throw new Error("GOOGLE_BOOKS_API_KEY is not set");
+  }
+
+  const url = new URL(`https://www.googleapis.com/books/v1/volumes/${id}`);
+  url.searchParams.set("key", process.env.GOOGLE_BOOKS_API_KEY);
+
+  const response = await fetch(url);
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch book: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  const parsed = singleBookSchema.parse(data);
+
+  return parseBookItem(parsed);
 }

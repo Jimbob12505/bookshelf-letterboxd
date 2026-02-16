@@ -2,6 +2,8 @@ import { auth } from "~/server/auth";
 import { redirect } from "next/navigation";
 import Image from "next/image";
 import { db } from "~/server/db";
+import { CreateShelfModal } from "~/components/CreateShelfModal";
+import { ShelfCard } from "~/components/ShelfCard";
 
 export default async function ProfilePage() {
   const session = await auth();
@@ -76,18 +78,13 @@ export default async function ProfilePage() {
         <section>
           <div className="mb-8 flex items-center justify-between border-b border-charcoal/10 pb-4">
             <h2 className="font-serif text-2xl font-bold text-charcoal">My Shelves</h2>
-            <button className="text-sm font-semibold text-sage hover:underline">
-              + Create New Shelf
-            </button>
+            <CreateShelfModal />
           </div>
 
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
             {user.shelves.length > 0 ? (
               user.shelves.map((shelf) => (
-                <div key={shelf.id} className="glass-card p-6 transition-all hover:scale-[1.02]">
-                  <h3 className="font-serif text-xl font-bold text-charcoal">{shelf.name}</h3>
-                  <p className="mt-1 text-sm text-charcoal/40">{shelf.books.length} books</p>
-                </div>
+                <ShelfCard key={shelf.id} shelf={shelf} />
               ))
             ) : (
               <div className="col-span-full py-20 text-center">
