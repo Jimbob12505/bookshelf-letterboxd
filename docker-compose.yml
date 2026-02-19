@@ -5,13 +5,21 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - '3001:3000'
+      - '3001:3001'
     depends_on:
       - db
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    command: sh -c "npm install && npx prisma generate && npm run dev"
     environment:
+      - NODE_ENV=development
+      - PORT=3001
       - DATABASE_URL=postgresql://postgres:password@db:5432/bookshelf-letterboxd
       - GOOGLE_BOOKS_API_KEY=${GOOGLE_BOOKS_API_KEY}
       - AUTH_SECRET=${AUTH_SECRET}
+      - WATCHPACK_POLLING=true
     env_file:
       - .env
 

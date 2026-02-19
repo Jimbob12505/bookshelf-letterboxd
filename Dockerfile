@@ -11,6 +11,7 @@ FROM node:20-slim AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+
 # Explicitly generate prisma client inside the container
 RUN npx prisma generate
 RUN SKIP_ENV_VALIDATION=true npm run build

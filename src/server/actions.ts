@@ -101,6 +101,53 @@ export async function getShelfById(id: string) {
   });
 }
 
+export async function getNotesByBook(bookId: string) {
+  const session = await auth();
+  if (!session?.user) return [];
+
+  return db.note.findMany({
+    where: { bookId, userId: session.user.id },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function createNote(bookId: string, title: string = "Untitled Reflection") {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+
+  const note = await db.note.create({
+    data: {
+      title,
+      userId: session.user.id,
+      bookId,
+      content: {
+        type: "doc",
+        content: [{ type: "paragraph" }]
+      } as any,
+    },
+  });
+
+  revalidatePath(`/journal/${bookId}`);
+  return note;
+}
+
+export async function updateNote(noteId: string, data: { title?: string; content?: any; tags?: string[] }) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+
+  const note = await db.note.update({
+    where: { id: noteId, userId: session.user.id },
+    data,
+  });
+
+  // Extract bookId to revalidate if needed
+  if (note.bookId) {
+    revalidatePath(`/journal/${note.bookId}`);
+  }
+  
+  return note;
+}
+
 export async function saveJournalEntry(
   bookId: string,
   content: string,
@@ -110,11 +157,12 @@ export async function saveJournalEntry(
   const session = await auth();
   if (!session?.user) throw new Error("Unauthorized");
 
-  const entry = await db.journalEntry.create({
+  // For now, we store content as a simple JSON object for compatibility with the Note model
+  const entry = await db.note.create({
     data: {
-      content,
-      page,
-      type,
+      title: page ? `Page ${page}` : "New Reflection",
+      content: { text: content } as any, // Temporary simple format
+      tags: [type],
       userId: session.user.id,
       bookId,
     },
