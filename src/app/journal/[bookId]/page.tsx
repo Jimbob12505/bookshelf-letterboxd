@@ -20,6 +20,7 @@ export default async function JournalPage({
   const notes = await db.note.findMany({
     where: { bookId, userId: session.user.id },
     orderBy: { createdAt: "desc" },
+    include: { linksTo: { select: { id: true } } },
   });
 
   return (
@@ -32,6 +33,7 @@ export default async function JournalPage({
           content: n.content,
           tags: n.tags,
           createdAt: n.createdAt,
+          linksTo: n.linksTo,
         }))}
       />
     </div>

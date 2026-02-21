@@ -1,5 +1,7 @@
 "use server";
 
+// ---- Journal / Notes ----
+
 import { db } from "~/server/db";
 import { auth } from "~/server/auth";
 import { getBook } from "~/lib/books";
@@ -144,7 +146,50 @@ export async function updateNote(noteId: string, data: { title?: string; content
   if (note.bookId) {
     revalidatePath(`/journal/${note.bookId}`);
   }
-  
+
+  return note;
+}
+
+export async function deleteNote(noteId: string) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+
+  const note = await db.note.delete({
+    where: { id: noteId, userId: session.user.id },
+  });
+
+  if (note.bookId) {
+    revalidatePath(`/journal/${note.bookId}`);
+  }
+
+  return note;
+}
+
+/** Returns all notes for a book with their outgoing wiki-link ids — used to build the graph. */
+export async function getNoteLinks(bookId: string) {
+  const session = await auth();
+  if (!session?.user) return [];
+
+  return db.note.findMany({
+    where: { bookId, userId: session.user.id },
+    select: { id: true, title: true, linksTo: { select: { id: true } } },
+  });
+}
+
+/** Replaces the full set of outgoing wiki-links for a note. */
+export async function updateNoteLinks(noteId: string, linkedNoteIds: string[]) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+
+  const note = await db.note.update({
+    where: { id: noteId, userId: session.user.id },
+    data: {
+      linksTo: {
+        set: linkedNoteIds.map((id) => ({ id })),
+      },
+    },
+  });
+
   return note;
 }
 
