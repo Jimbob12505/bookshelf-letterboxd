@@ -14,7 +14,7 @@ export default function Navbar({ session }: { session: Session | null }) {
 
   const navLinks = [
     { name: "Discover", href: "/search" },
-    { name: "Community", href: "#", disabled: true },
+    { name: "Community", href: "/community" },
     { name: "My Shelf", href: "/profile" },
   ];
 
@@ -36,11 +36,7 @@ export default function Navbar({ session }: { session: Session | null }) {
                 <Link
                   key={link.name}
                   href={link.href}
-                  className={`relative font-sans text-sm font-medium tracking-wide transition-colors ${
-                    link.disabled
-                      ? "cursor-not-allowed opacity-40"
-                      : "text-charcoal/60 hover:text-charcoal"
-                  } ${pathname === link.href ? "text-charcoal" : ""}`}
+                  className={`relative font-sans text-sm font-medium tracking-wide transition-colors text-charcoal/60 hover:text-charcoal ${pathname === link.href ? "text-charcoal" : ""}`}
                 >
                   {link.name}
                   {pathname === link.href && (

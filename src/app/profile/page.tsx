@@ -4,6 +4,7 @@ import Image from "next/image";
 import { db } from "~/server/db";
 import { CreateShelfModal } from "~/components/CreateShelfModal";
 import { ShelfCard } from "~/components/ShelfCard";
+import { UsernameEditor } from "~/components/profile/UsernameEditor";
 
 export default async function ProfilePage() {
   const session = await auth();
@@ -20,8 +21,18 @@ export default async function ProfilePage() {
           books: true,
         },
       },
+      _count: {
+        select: {
+          followedBy: true,
+          following: true,
+        },
+      },
     },
   });
+
+  const totalBooks = user
+    ? await db.book.count({ where: { shelves: { some: { userId: session.user.id } } } })
+    : 0;
 
   if (!user) {
     redirect("/");
@@ -30,6 +41,15 @@ export default async function ProfilePage() {
   return (
     <div className="min-h-screen bg-parchment px-4 py-12">
       <div className="mx-auto max-w-5xl">
+        {/* No-handle banner for existing accounts */}
+        {!user.handle && (
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+            <p className="text-sm font-medium text-amber-800">
+              Set a username so others can find and follow you in the Community tab.
+            </p>
+          </div>
+        )}
+
         {/* Profile Header */}
         <header className="mb-12 flex flex-col items-center gap-8 md:flex-row md:items-start">
           <div className="relative h-32 w-32 overflow-hidden rounded-full border-4 border-white shadow-tactile">
@@ -51,19 +71,19 @@ export default async function ProfilePage() {
             <h1 className="font-serif text-4xl font-bold text-charcoal">
               {user.name}
             </h1>
-            <p className="font-sans text-sage">@{user.handle ?? "bookworm"}</p>
+            <UsernameEditor currentHandle={user.handle} />
             
             <div className="mt-4 flex justify-center gap-8 md:justify-start">
               <div className="text-center md:text-left">
-                <span className="block text-xl font-bold text-charcoal">0</span>
+                <span className="block text-xl font-bold text-charcoal">{totalBooks}</span>
                 <span className="text-xs uppercase tracking-widest text-charcoal/40">Books</span>
               </div>
               <div className="text-center md:text-left">
-                <span className="block text-xl font-bold text-charcoal">0</span>
+                <span className="block text-xl font-bold text-charcoal">{user._count.followedBy}</span>
                 <span className="text-xs uppercase tracking-widest text-charcoal/40">Followers</span>
               </div>
               <div className="text-center md:text-left">
-                <span className="block text-xl font-bold text-charcoal">0</span>
+                <span className="block text-xl font-bold text-charcoal">{user._count.following}</span>
                 <span className="text-xs uppercase tracking-widest text-charcoal/40">Following</span>
               </div>
             </div>

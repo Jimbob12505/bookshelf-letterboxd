@@ -37,10 +37,15 @@ model User {
 
   // Shelves
   shelves    Shelf[]
-  
+
   // Knowledge Base
   notes      Note[]
   folders    Folder[]
+
+  // Lounges
+  ownedLounges   Lounge[]        @relation("LoungeCreator")
+  loungeMemberships LoungeMembership[]
+  loungeMessages LoungeMessage[]
 }
 
 model Account {
@@ -98,6 +103,7 @@ model Book {
   topShelf TopShelf[]
   shelves  Shelf[]
   notes    Note[]
+  lounges  Lounge[]
 }
 
 model Shelf {
@@ -193,6 +199,48 @@ model ClubMembership {
   clubId String
 
   @@unique([userId, clubId])
+}
+
+model Lounge {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  description   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  creator       User     @relation("LoungeCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  creatorId     String
+
+  currentBook   Book?    @relation(fields: [currentBookId], references: [id])
+  currentBookId String?
+
+  members       LoungeMembership[]
+  messages      LoungeMessage[]
+}
+
+model LoungeMembership {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+
+  lounge    Lounge   @relation(fields: [loungeId], references: [id], onDelete: Cascade)
+  loungeId  String
+
+  @@unique([userId, loungeId])
+}
+
+model LoungeMessage {
+  id        String   @id @default(cuid())
+  text      String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+
+  lounge    Lounge   @relation(fields: [loungeId], references: [id], onDelete: Cascade)
+  loungeId  String
 }
 
 model TopShelf {

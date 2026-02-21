@@ -3,6 +3,7 @@ import type { DefaultSession, NextAuthConfig } from "next-auth";
 import Google from "next-auth/providers/google";
 
 import { db } from "~/server/db";
+import { generateBaseHandle, makeUniqueHandle } from "~/lib/handle";
 
 /**
  * Module augmentation for `next-auth` types. Allows us to add custom properties to the `session`
@@ -55,5 +56,13 @@ export const authConfig = {
 				id: user.id,
 			},
 		}),
+	},
+	events: {
+		createUser: async ({ user }) => {
+			if (!user.id) return;
+			const base = generateBaseHandle(user.name, user.email);
+			const handle = await makeUniqueHandle(db, base);
+			await db.user.update({ where: { id: user.id }, data: { handle } });
+		},
 	},
 } satisfies NextAuthConfig;

@@ -1,11 +1,97 @@
 "use server";
 
-// ---- Journal / Notes ----
-
 import { db } from "~/server/db";
 import { auth } from "~/server/auth";
 import { getBook } from "~/lib/books";
 import { revalidatePath } from "next/cache";
+
+// ---- Username ----
+
+/** Validates and updates the current user's handle. Throws a user-facing error on conflict. */
+export async function updateHandle(newHandle: string) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+
+  const cleaned = newHandle.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
+  if (cleaned.length < 3) throw new Error("Username must be at least 3 characters.");
+  if (cleaned.length > 30) throw new Error("Username must be 30 characters or fewer.");
+
+  const existing = await db.user.findUnique({ where: { handle: cleaned } });
+  if (existing && existing.id !== session.user.id) {
+    throw new Error(`@${cleaned} is already taken. Please choose another.`);
+  }
+
+  await db.user.update({
+    where: { id: session.user.id },
+    data: { handle: cleaned },
+  });
+
+  revalidatePath("/profile");
+}
+
+/** Search users by handle or name (case-insensitive prefix match). */
+export async function searchUsers(query: string) {
+  const q = query.trim();
+  if (q.length < 1) return [];
+
+  return db.user.findMany({
+    where: {
+      OR: [
+        { handle: { contains: q, mode: "insensitive" } },
+        { name: { contains: q, mode: "insensitive" } },
+      ],
+    },
+    select: {
+      id: true,
+      name: true,
+      handle: true,
+      image: true,
+      _count: { select: { followedBy: true } },
+    },
+    take: 10,
+  });
+}
+
+// ---- Social ----
+
+export async function followUser(targetUserId: string) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+  if (session.user.id === targetUserId) throw new Error("Cannot follow yourself");
+
+  await db.user.update({
+    where: { id: session.user.id },
+    data: { following: { connect: { id: targetUserId } } },
+  });
+
+  revalidatePath("/community");
+}
+
+export async function unfollowUser(targetUserId: string) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+
+  await db.user.update({
+    where: { id: session.user.id },
+    data: { following: { disconnect: { id: targetUserId } } },
+  });
+
+  revalidatePath("/community");
+}
+
+export async function isFollowing(targetUserId: string): Promise<boolean> {
+  const session = await auth();
+  if (!session?.user) return false;
+
+  const user = await db.user.findUnique({
+    where: { id: session.user.id },
+    select: { following: { where: { id: targetUserId }, select: { id: true } } },
+  });
+
+  return (user?.following.length ?? 0) > 0;
+}
+
+// ---- Shelves & Journal ----
 
 export async function getUserShelves() {
   const session = await auth();
@@ -215,4 +301,57 @@ export async function saveJournalEntry(
 
   revalidatePath(`/journal/${bookId}`);
   return entry;
+}
+
+// ---- Lounges ----
+
+export async function joinLounge(loungeId: string) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+
+  await db.loungeMembership.upsert({
+    where: { userId_loungeId: { userId: session.user.id, loungeId } },
+    create: { userId: session.user.id, loungeId },
+    update: {},
+  });
+
+  revalidatePath(`/lounge/${loungeId}`);
+}
+
+export async function sendLoungeMessage(loungeId: string, text: string) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+
+  const trimmed = text.trim();
+  if (!trimmed) throw new Error("Message cannot be empty");
+
+  // Auto-join if not a member
+  await db.loungeMembership.upsert({
+    where: { userId_loungeId: { userId: session.user.id, loungeId } },
+    create: { userId: session.user.id, loungeId },
+    update: {},
+  });
+
+  const message = await db.loungeMessage.create({
+    data: { text: trimmed, userId: session.user.id, loungeId },
+  });
+
+  return message;
+}
+
+export async function createLounge(name: string, description?: string) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+
+  const lounge = await db.lounge.create({
+    data: {
+      name,
+      description,
+      creatorId: session.user.id,
+      members: { create: { userId: session.user.id } },
+    },
+  });
+
+  revalidatePath("/community");
+  return lounge;
 }
