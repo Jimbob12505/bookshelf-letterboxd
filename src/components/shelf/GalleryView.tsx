@@ -13,7 +13,13 @@ type Book = {
   authors: string[];
 };
 
-export function GalleryView({ books }: { books: Book[] }) {
+export function GalleryView({
+  books,
+  isOwner = true,
+}: {
+  books: Book[];
+  isOwner?: boolean;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -72,7 +78,7 @@ export function GalleryView({ books }: { books: Book[] }) {
               data-book-item
               className="flex-shrink-0 snap-center px-12"
             >
-              <Link href={`/journal/${book.id}`}>
+              <Link href={isOwner ? `/journal/${book.id}` : `/book/${book.id}`}>
                 <motion.div
                   animate={{
                     scale: activeIndex === i ? 1.1 : 0.85,

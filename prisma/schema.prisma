@@ -12,6 +12,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum ActivityType {
+  SHELF_ADD
+  REVIEW
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String?
@@ -46,6 +51,9 @@ model User {
   ownedLounges   Lounge[]        @relation("LoungeCreator")
   loungeMemberships LoungeMembership[]
   loungeMessages LoungeMessage[]
+
+  // Activity
+  activities Activity[]
 }
 
 model Account {
@@ -99,11 +107,12 @@ model Book {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  reviews  Review[]
-  topShelf TopShelf[]
-  shelves  Shelf[]
-  notes    Note[]
-  lounges  Lounge[]
+  reviews    Review[]
+  topShelf   TopShelf[]
+  shelves    Shelf[]
+  notes      Note[]
+  lounges    Lounge[]
+  activities Activity[]
 }
 
 model Shelf {
@@ -112,10 +121,11 @@ model Shelf {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
 
-  books     Book[]
+  books      Book[]
+  activities Activity[]
 }
 
 model Folder {
@@ -241,6 +251,26 @@ model LoungeMessage {
 
   lounge    Lounge   @relation(fields: [loungeId], references: [id], onDelete: Cascade)
   loungeId  String
+}
+
+model Activity {
+  id        String       @id @default(cuid())
+  type      ActivityType
+  createdAt DateTime     @default(now())
+
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+
+  book      Book?        @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  bookId    String?
+
+  shelf     Shelf?       @relation(fields: [shelfId], references: [id], onDelete: Cascade)
+  shelfId   String?
+
+  // Denormalised shelf name so it survives renames
+  shelfName String?
+
+  @@unique([userId, bookId, shelfId])
 }
 
 model TopShelf {

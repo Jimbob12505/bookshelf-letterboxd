@@ -160,7 +160,7 @@ export async function addToShelf(bookId: string, shelfId: string) {
   }
 
   // 3. Add to Shelf (using connect on the many-to-many relation)
-  await db.shelf.update({
+  const shelf = await db.shelf.update({
     where: {
       id: shelfId,
       userId: session.user.id, // Security check
@@ -170,6 +170,22 @@ export async function addToShelf(bookId: string, shelfId: string) {
         connect: { id: book.id },
       },
     },
+  });
+
+  // 4. Record activity for the community feed (ignore duplicates silently)
+  await db.activity.upsert({
+    where: {
+      // Use a synthetic unique key: one activity per user+book+shelf combo
+      userId_bookId_shelfId: { userId: session.user.id, bookId: book.id, shelfId },
+    },
+    create: {
+      type: "SHELF_ADD",
+      userId: session.user.id,
+      bookId: book.id,
+      shelfId,
+      shelfName: shelf.name,
+    },
+    update: {}, // already recorded, skip
   });
 
   revalidatePath("/profile");

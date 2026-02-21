@@ -5,82 +5,9 @@ import Image from "next/image";
 import { FeedCard } from "~/components/community/FeedCard";
 import type { FeedItem } from "~/components/community/FeedCard";
 import { UserSearch } from "~/components/community/UserSearch";
+import { FeedTabs } from "~/components/community/FeedTabs";
 
-// ── Dummy data (used when user follows nobody) ───────────────
-
-const DUMMY_FEED: FeedItem[] = [
-  {
-    type: "review",
-    id: "d1",
-    user: { name: "Elena Vasquez", handle: "elenavasquez", image: null },
-    book: {
-      id: "XoFpDQAAQBAJ",
-      title: "Dune",
-      authors: ["Frank Herbert"],
-      thumbnail: "https://books.google.com/books/content?id=XoFpDQAAQBAJ&printsec=frontcover&img=1&zoom=1",
-    },
-    rating: 5,
-    content: "Incredible worldbuilding. The ecology of Arrakis alone is worth the read — Herbert built an entire civilisation around scarcity and faith.",
-    vibeTags: ["epic", "political", "world-building"],
-    createdAt: new Date(Date.now() - 1000 * 60 * 42),
-  },
-  {
-    type: "shelf",
-    id: "d2",
-    user: { name: "Marcus Chen", handle: "marcuschen", image: null },
-    book: {
-      id: "lFkoDwAAQBAJ",
-      title: "Verity",
-      authors: ["Colleen Hoover"],
-      thumbnail: "https://books.google.com/books/content?id=lFkoDwAAQBAJ&printsec=frontcover&img=1&zoom=1",
-    },
-    shelfName: "Cannot Put Down",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 3),
-  },
-  {
-    type: "review",
-    id: "d3",
-    user: { name: "Sophie Laurent", handle: "sophielaurent", image: null },
-    book: {
-      id: "eLJRCgAAQBAJ",
-      title: "Normal People",
-      authors: ["Sally Rooney"],
-      thumbnail: "https://books.google.com/books/content?id=eLJRCgAAQBAJ&printsec=frontcover&img=1&zoom=1",
-    },
-    rating: 4,
-    content: "Rooney captures the quiet devastation of being known by someone and still feeling unseen. The prose is restrained in exactly the right way.",
-    vibeTags: ["literary", "quiet", "aching"],
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 7),
-  },
-  {
-    type: "shelf",
-    id: "d4",
-    user: { name: "James Okafor", handle: "jamesokafor", image: null },
-    book: {
-      id: "sExUIJR1pIsC",
-      title: "The Name of the Wind",
-      authors: ["Patrick Rothfuss"],
-      thumbnail: "https://books.google.com/books/content?id=sExUIJR1pIsC&printsec=frontcover&img=1&zoom=1",
-    },
-    shelfName: "Reading Now",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 11),
-  },
-  {
-    type: "review",
-    id: "d5",
-    user: { name: "Amara Osei", handle: "amaraosei", image: null },
-    book: {
-      id: "eTaODQAAQBAJ",
-      title: "Pachinko",
-      authors: ["Min Jin Lee"],
-      thumbnail: "https://books.google.com/books/content?id=eTaODQAAQBAJ&printsec=frontcover&img=1&zoom=1",
-    },
-    rating: 5,
-    content: "Four generations of a Korean family and not a single wasted word. One of the most humane novels I have ever read.",
-    vibeTags: ["multigenerational", "heartbreaking", "essential"],
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 20),
-  },
-];
+// ── Lounge fallback ──────────────────────────────────────────
 
 const DUMMY_LOUNGES = [
   { id: "l1", name: "Sci-Fi Salon", description: "Currently reading Hyperion", memberCount: 34 },
@@ -88,89 +15,244 @@ const DUMMY_LOUNGES = [
   { id: "l3", name: "Literary Fiction", description: "Discussing Pachinko", memberCount: 18 },
 ];
 
-const DUMMY_SUGGESTED = [
-  { name: "Elena Vasquez", handle: "elenavasquez", image: null, booksRead: 142 },
-  { name: "Sophie Laurent", handle: "sophielaurent", image: null, booksRead: 87 },
-  { name: "Amara Osei", handle: "amaraosei", image: null, booksRead: 203 },
-];
+// ── Feed builders ────────────────────────────────────────────
+
+const REVIEW_INCLUDE = {
+  user: { select: { name: true, handle: true, image: true } },
+  book: { select: { id: true, title: true, authors: true, thumbnail: true } },
+} as const;
+
+const ACTIVITY_INCLUDE = {
+  user: { select: { name: true, handle: true, image: true } },
+  book: { select: { id: true, title: true, authors: true, thumbnail: true } },
+} as const;
+
+type ReviewRow = Awaited<ReturnType<typeof db.review.findMany<{ include: typeof REVIEW_INCLUDE }>>>[number];
+type ActivityRow = Awaited<ReturnType<typeof db.activity.findMany<{ include: typeof ACTIVITY_INCLUDE }>>>[number];
+
+function reviewToFeedItem(r: ReviewRow): FeedItem {
+  return {
+    type: "review",
+    id: r.id,
+    user: { name: r.user.name ?? "Reader", handle: r.user.handle ?? "reader", image: r.user.image },
+    book: r.book!,
+    rating: r.rating,
+    content: r.content,
+    vibeTags: r.vibeTags,
+    createdAt: r.createdAt,
+  };
+}
+
+function activityToFeedItem(a: ActivityRow): FeedItem | null {
+  if (!a.book) return null;
+  return {
+    type: "shelf",
+    id: `act-${a.id}`,
+    user: { name: a.user.name ?? "Reader", handle: a.user.handle ?? "reader", image: a.user.image },
+    book: a.book,
+    shelfName: a.shelfName ?? "a shelf",
+    createdAt: a.createdAt,
+  };
+}
+
+/** Merge review and activity rows into a single feed sorted by createdAt desc. */
+function mergeFeed(reviews: ReviewRow[], activities: ActivityRow[]): FeedItem[] {
+  const items: FeedItem[] = [
+    ...reviews.map(reviewToFeedItem),
+    ...activities.map(activityToFeedItem).filter((x): x is FeedItem => x !== null),
+  ];
+  return items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+async function getGlobalFeed(): Promise<FeedItem[]> {
+  // Popular slice: reviews + shelf-adds from users with most followers
+  const [popularReviews, popularActivities] = await Promise.all([
+    db.review.findMany({
+      where: { isPublic: true },
+      orderBy: [
+        { user: { followedBy: { _count: "desc" } } },
+        { rating: "desc" },
+        { createdAt: "desc" },
+      ],
+      take: 12,
+      include: REVIEW_INCLUDE,
+    }),
+    db.activity.findMany({
+      where: { type: "SHELF_ADD" },
+      orderBy: [
+        { user: { followedBy: { _count: "desc" } } },
+        { createdAt: "desc" },
+      ],
+      take: 8,
+      include: ACTIVITY_INCLUDE,
+    }),
+  ]);
+
+  const popularFeed = mergeFeed(popularReviews, popularActivities).slice(0, 15);
+  const popularIds = new Set(popularFeed.map((x) => x.id));
+
+  // Random slice for serendipity
+  const [totalReviews, totalActivities] = await Promise.all([
+    db.review.count({ where: { isPublic: true } }),
+    db.activity.count({ where: { type: "SHELF_ADD" } }),
+  ]);
+
+  const reviewSkip = totalReviews > 12 ? Math.floor(Math.random() * (totalReviews - 12)) : 0;
+  const actSkip = totalActivities > 8 ? Math.floor(Math.random() * (totalActivities - 8)) : 0;
+
+  const [randomReviews, randomActivities] = await Promise.all([
+    db.review.findMany({
+      where: { isPublic: true, id: { notIn: [...popularIds].filter((id) => !id.startsWith("act-")) } },
+      orderBy: { createdAt: "desc" },
+      skip: reviewSkip,
+      take: 3,
+      include: REVIEW_INCLUDE,
+    }),
+    db.activity.findMany({
+      where: {
+        type: "SHELF_ADD",
+        id: { notIn: [...popularIds].filter((id) => id.startsWith("act-")).map((id) => id.slice(4)) },
+      },
+      orderBy: { createdAt: "desc" },
+      skip: actSkip,
+      take: 2,
+      include: ACTIVITY_INCLUDE,
+    }),
+  ]);
+
+  const randomFeed = mergeFeed(randomReviews, randomActivities);
+
+  // Interleave: every 3 popular items, splice in 1 random
+  const result: FeedItem[] = [];
+  let ri = 0;
+  for (let i = 0; i < popularFeed.length; i++) {
+    result.push(popularFeed[i]!);
+    if ((i + 1) % 3 === 0 && ri < randomFeed.length) {
+      result.push(randomFeed[ri++]!);
+    }
+  }
+  while (ri < randomFeed.length) result.push(randomFeed[ri++]!);
+
+  return result;
+}
+
+async function getFollowingFeed(userId: string): Promise<FeedItem[]> {
+  const me = await db.user.findUnique({
+    where: { id: userId },
+    select: { following: { select: { id: true } } },
+  });
+
+  const followedIds = me?.following.map((u) => u.id) ?? [];
+  if (followedIds.length === 0) return [];
+
+  const [reviews, activities] = await Promise.all([
+    db.review.findMany({
+      where: { userId: { in: followedIds }, isPublic: true },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+      include: REVIEW_INCLUDE,
+    }),
+    db.activity.findMany({
+      where: { userId: { in: followedIds }, type: "SHELF_ADD" },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+      include: ACTIVITY_INCLUDE,
+    }),
+  ]);
+
+  return mergeFeed(reviews, activities).slice(0, 40);
+}
 
 // ── Page ─────────────────────────────────────────────────────
 
-export default async function CommunityPage() {
+export default async function CommunityPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const { tab } = await searchParams;
+  const activeTab: "global" | "following" = tab === "following" ? "following" : "global";
+
   const session = await auth();
 
-  // Fetch real feed: public reviews from followed users (or recent global if no follows)
-  let feed: FeedItem[] = DUMMY_FEED;
-
-  if (session?.user) {
-    const followedUsers = await db.user.findUnique({
-      where: { id: session.user.id },
-      select: { following: { select: { id: true } } },
-    });
-
-    const followedIds = followedUsers?.following.map((u) => u.id) ?? [];
-
-    if (followedIds.length > 0) {
-      const reviews = await db.review.findMany({
-        where: {
-          userId: { in: followedIds },
-          isPublic: true,
-        },
-        orderBy: { createdAt: "desc" },
-        take: 20,
-        include: {
-          user: { select: { name: true, handle: true, image: true } },
-          book: { select: { id: true, title: true, authors: true, thumbnail: true } },
-        },
-      });
-
-      if (reviews.length > 0) {
-        feed = reviews.map((r) => ({
-          type: "review" as const,
-          id: r.id,
-          user: {
-            name: r.user.name ?? "Reader",
-            handle: r.user.handle ?? r.user.name ?? "reader",
-            image: r.user.image,
-          },
-          book: r.book,
-          rating: r.rating,
-          content: r.content,
-          vibeTags: r.vibeTags,
-          createdAt: r.createdAt,
-        }));
-      }
-    }
+  // Fetch the right feed
+  let feed: FeedItem[] = [];
+  if (activeTab === "global") {
+    feed = await getGlobalFeed();
+  } else if (session?.user) {
+    feed = await getFollowingFeed(session.user.id);
   }
 
-  // Real lounges
+  // Real lounges for sidebar
   const lounges = await db.lounge.findMany({
     orderBy: { createdAt: "desc" },
     take: 5,
     include: { _count: { select: { members: true } } },
   });
 
+  const sidebarLounges =
+    lounges.length > 0
+      ? lounges.map((l) => ({
+          id: l.id,
+          name: l.name,
+          description: l.description ?? "",
+          memberCount: l._count.members,
+        }))
+      : DUMMY_LOUNGES;
+
   return (
     <div className="min-h-screen bg-parchment">
       <div className="mx-auto max-w-6xl px-4 py-12">
         {/* Page header */}
-        <header className="mb-10 border-b border-charcoal/10 pb-6">
+        <header className="mb-8 border-b border-charcoal/10 pb-6">
           <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-charcoal/30">
             BookBound — Community
           </p>
           <h1 className="font-serif text-5xl font-bold text-charcoal">The Reading Room</h1>
-          <p className="mt-2 font-sans text-base text-charcoal/50">
-            What the people you follow are reading, rating, and shelving.
-          </p>
         </header>
 
         <div className="flex gap-12">
           {/* ── Left: Feed (70%) ─────────────────────────── */}
           <main className="min-w-0 flex-[7]">
-            {feed.length === 0 ? (
-              <div className="py-20 text-center">
+            {/* Tabs */}
+            <FeedTabs activeTab={activeTab} />
+
+            {/* Following tab: not logged in */}
+            {activeTab === "following" && !session?.user && (
+              <div className="py-16 text-center">
                 <p className="font-serif text-xl italic text-charcoal/30">
-                  Your feed is quiet. Follow some readers to see their activity here.
+                  Sign in to see activity from people you follow.
+                </p>
+                <Link
+                  href="/auth/signin"
+                  className="mt-6 inline-block rounded-full bg-sage px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-sage/20 transition-all hover:scale-105"
+                >
+                  Sign In
+                </Link>
+              </div>
+            )}
+
+            {/* Following tab: logged in but no follows */}
+            {activeTab === "following" && session?.user && feed.length === 0 && (
+              <div className="py-16 text-center">
+                <p className="font-serif text-xl italic text-charcoal/30">
+                  Nothing here yet — follow some readers to see their activity.
+                </p>
+                <button
+                  type="button"
+                  onClick={undefined}
+                  className="mt-6 inline-block rounded-full border border-charcoal/15 px-8 py-3 text-sm font-semibold text-charcoal/50"
+                >
+                  Use the search on the right →
+                </button>
+              </div>
+            )}
+
+            {/* Global tab: empty (very unlikely, only if no reviews in DB at all) */}
+            {activeTab === "global" && feed.length === 0 && (
+              <div className="py-16 text-center">
+                <p className="font-serif text-xl italic text-charcoal/30">
+                  No activity yet. Be the first to review a book.
                 </p>
                 <Link
                   href="/search"
@@ -179,22 +261,31 @@ export default async function CommunityPage() {
                   Discover Books
                 </Link>
               </div>
-            ) : (
+            )}
+
+            {/* Feed items */}
+            {feed.length > 0 && (
               <div>
-                {!session?.user && (
-                  <div className="mb-6 rounded-2xl border border-sage/20 bg-sage/5 px-6 py-4">
-                    <p className="text-sm text-charcoal/60">
-                      <span className="font-semibold text-charcoal">Showing popular activity.</span>{" "}
-                      <Link href="/auth/signin" className="text-sage hover:underline">Sign in</Link>{" "}
-                      to see a personalised feed from people you follow.
-                    </p>
-                  </div>
+                {activeTab === "global" && (
+                  <p className="mb-4 text-[10px] font-bold uppercase tracking-widest text-charcoal/25">
+                    Popular · with a few discoveries
+                  </p>
                 )}
-                <div>
-                  {feed.map((item) => (
-                    <FeedCard key={item.id} item={item} />
-                  ))}
-                </div>
+                {feed.map((item, i) => (
+                  <div key={item.id}>
+                    <FeedCard item={item} />
+                    {/* Subtle divider label every ~4 items in global to mark "discoveries" */}
+                    {activeTab === "global" && i > 0 && (i + 1) % 4 === 0 && i < feed.length - 1 && (
+                      <div className="my-2 flex items-center gap-3">
+                        <div className="h-px flex-grow bg-charcoal/5" />
+                        <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-charcoal/20">
+                          Discovery
+                        </span>
+                        <div className="h-px flex-grow bg-charcoal/5" />
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
           </main>
@@ -213,12 +304,7 @@ export default async function CommunityPage() {
                 Trending Lounges
               </h2>
               <div className="space-y-2">
-                {(lounges.length > 0 ? lounges.map((l) => ({
-                  id: l.id,
-                  name: l.name,
-                  description: l.description ?? "",
-                  memberCount: l._count.members,
-                })) : DUMMY_LOUNGES).map((lounge) => (
+                {sidebarLounges.map((lounge) => (
                   <Link
                     key={lounge.id}
                     href={`/lounge/${lounge.id}`}
@@ -245,45 +331,6 @@ export default async function CommunityPage() {
                   </svg>
                   Start a Lounge
                 </Link>
-              </div>
-            </section>
-
-            {/* Divider */}
-            <div className="mb-8 border-t border-stone-200" />
-
-            {/* Suggested Readers */}
-            <section>
-              <h2 className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-charcoal/40">
-                Suggested Readers
-              </h2>
-              <div className="space-y-3">
-                {DUMMY_SUGGESTED.map((user) => (
-                  <div key={user.handle} className="flex items-center gap-3">
-                    <Link href={`/profile/${user.handle}`} className="flex-shrink-0">
-                      <div className="relative h-9 w-9 overflow-hidden rounded-full border border-charcoal/10">
-                        {user.image ? (
-                          <Image src={user.image} alt={user.name} fill className="object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center bg-sage/20 text-sm font-bold text-sage">
-                            {user.name[0]}
-                          </div>
-                        )}
-                      </div>
-                    </Link>
-                    <div className="min-w-0 flex-grow">
-                      <Link href={`/profile/${user.handle}`} className="block truncate text-sm font-semibold text-charcoal hover:text-sage transition-colors">
-                        {user.name}
-                      </Link>
-                      <p className="text-[10px] text-charcoal/35">{user.booksRead} books read</p>
-                    </div>
-                    <button
-                      type="button"
-                      className="flex-shrink-0 rounded-full border border-charcoal/15 px-3 py-1 text-[11px] font-semibold text-charcoal/60 transition-all hover:border-sage hover:bg-sage/5 hover:text-sage"
-                    >
-                      Follow
-                    </button>
-                  </div>
-                ))}
               </div>
             </section>
           </aside>
